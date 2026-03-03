@@ -11,15 +11,15 @@ import 'package:immich_mobile/domain/services/setting.service.dart';
 import 'package:immich_mobile/entities/store.entity.dart';
 import 'package:immich_mobile/extensions/platform_extensions.dart';
 import 'package:immich_mobile/infrastructure/repositories/storage.repository.dart';
-import 'package:immich_mobile/presentation/widgets/asset_viewer/asset_viewer.state.dart';
 import 'package:immich_mobile/presentation/widgets/asset_viewer/video_viewer_controls.widget.dart';
+import 'package:immich_mobile/presentation/widgets/asset_viewer/asset_viewer.state.dart';
 import 'package:immich_mobile/providers/app_settings.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/is_motion_video_playing.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/video_player_controls_provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/video_player_value_provider.dart';
 import 'package:immich_mobile/providers/cast.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/asset.provider.dart';
-import 'package:immich_mobile/providers/infrastructure/asset_viewer/current_asset.provider.dart';
+import 'package:immich_mobile/providers/infrastructure/asset_viewer/asset.provider.dart';
 import 'package:immich_mobile/providers/infrastructure/setting.provider.dart';
 import 'package:immich_mobile/services/api.service.dart';
 import 'package:immich_mobile/services/app_settings.service.dart';
@@ -49,17 +49,10 @@ bool _isCurrentAsset(BaseAsset asset, BaseAsset? currentAsset) {
 class NativeVideoViewer extends HookConsumerWidget {
   static final log = Logger('NativeVideoViewer');
   final BaseAsset asset;
-  final bool showControls;
   final int playbackDelayFactor;
   final Widget image;
 
-  const NativeVideoViewer({
-    super.key,
-    required this.asset,
-    required this.image,
-    this.showControls = true,
-    this.playbackDelayFactor = 1,
-  });
+  const NativeVideoViewer({super.key, required this.asset, required this.image, this.playbackDelayFactor = 1});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -205,7 +198,7 @@ class NativeVideoViewer extends HookConsumerWidget {
       final videoPlayback = VideoPlaybackValue.fromNativeController(videoController);
       ref.read(videoPlaybackValueProvider.notifier).value = videoPlayback;
 
-      if (ref.read(assetViewerProvider.select((s) => s.showingBottomSheet))) {
+      if (ref.read(assetViewerProvider.select((s) => s.showingDetails))) {
         return;
       }
 
@@ -397,21 +390,13 @@ class NativeVideoViewer extends HookConsumerWidget {
       children: [
         // This remains under the video to avoid flickering
         // For motion videos, this is the image portion of the asset
-        Center(key: ValueKey(asset.heroTag), child: image),
+        Center(child: image),
         if (aspectRatio.value != null && !isCasting)
           Visibility.maintain(
-            key: ValueKey(asset),
             visible: isVisible.value,
-            child: Center(
-              key: ValueKey(asset),
-              child: AspectRatio(
-                key: ValueKey(asset),
-                aspectRatio: aspectRatio.value!,
-                child: isCurrent ? NativeVideoPlayerView(key: ValueKey(asset), onViewReady: initController) : null,
-              ),
-            ),
+            child: NativeVideoPlayerView(onViewReady: initController),
           ),
-        if (showControls) const Center(child: VideoViewerControls()),
+        const Center(child: VideoViewerControls()),
       ],
     );
   }

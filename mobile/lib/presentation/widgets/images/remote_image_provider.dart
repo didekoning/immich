@@ -32,7 +32,7 @@ class RemoteImageProvider extends CancellableImageProvider<RemoteImageProvider>
         DiagnosticsProperty<ImageProvider>('Image provider', this),
         DiagnosticsProperty<String>('URL', key.url),
       ],
-      onDispose: cancel,
+      onLastListenerRemoved: cancel,
     );
   }
 
@@ -76,7 +76,7 @@ class RemoteFullImageProvider extends CancellableImageProvider<RemoteFullImagePr
         DiagnosticsProperty<ImageProvider>('Image provider', this),
         DiagnosticsProperty<String>('Asset Id', key.assetId),
       ],
-      onDispose: cancel,
+      onLastListenerRemoved: cancel,
     );
   }
 
@@ -93,9 +93,10 @@ class RemoteFullImageProvider extends CancellableImageProvider<RemoteFullImagePr
       uri: getThumbnailUrlForRemoteId(key.assetId, type: AssetMediaSize.preview, thumbhash: key.thumbhash),
       headers: headers,
     );
-    yield* loadRequest(previewRequest, decode);
+    final loadOriginal = assetType == AssetType.image && AppSetting.get(Setting.loadOriginal);
+    yield* loadRequest(previewRequest, decode, evictOnError: !loadOriginal);
 
-    if (assetType != AssetType.image || !AppSetting.get(Setting.loadOriginal)) {
+    if (!loadOriginal) {
       return;
     }
 

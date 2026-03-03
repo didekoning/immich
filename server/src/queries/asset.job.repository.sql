@@ -78,43 +78,13 @@ limit
 -- AssetJobRepository.streamForThumbnailJob
 select
   "asset"."id",
-  "asset"."thumbhash",
-  (
-    select
-      coalesce(json_agg(agg), '[]')
-    from
-      (
-        select
-          "asset_file"."id",
-          "asset_file"."path",
-          "asset_file"."type",
-          "asset_file"."isEdited"
-        from
-          "asset_file"
-        where
-          "asset_file"."assetId" = "asset"."id"
-      ) as agg
-  ) as "files",
-  (
-    select
-      coalesce(json_agg(agg), '[]')
-    from
-      (
-        select
-          "asset_edit"."action",
-          "asset_edit"."parameters"
-        from
-          "asset_edit"
-        where
-          "asset_edit"."assetId" = "asset"."id"
-      ) as agg
-  ) as "edits"
+  "asset"."isEdited"
 from
   "asset"
   inner join "asset_job_status" on "asset_job_status"."assetId" = "asset"."id"
 where
   "asset"."deletedAt" is null
-  and "asset"."visibility" != $1
+  and "asset"."visibility" != 'hidden'
   and (
     not exists (
       select
@@ -122,7 +92,7 @@ where
         "asset_file"
       where
         "assetId" = "asset"."id"
-        and "asset_file"."type" = $2
+        and "type" = 'thumbnail'
     )
     or not exists (
       select
@@ -130,17 +100,75 @@ where
         "asset_file"
       where
         "assetId" = "asset"."id"
-        and "asset_file"."type" = $3
+        and "type" = 'preview'
     )
-    or not exists (
-      select
-      from
-        "asset_file"
-      where
-        "assetId" = "asset"."id"
-        and "asset_file"."type" = $4
+    or (
+      "asset"."isEdited" = true
+      and not exists (
+        select
+        from
+          "asset_file"
+        where
+          "assetId" = "asset"."id"
+          and "type" = 'fullsize'
+          and "asset_file"."isEdited" = true
+      )
     )
     or "asset"."thumbhash" is null
+    or (
+      not exists (
+        select
+        from
+          "asset_file"
+        where
+          "assetId" = "asset"."id"
+          and "type" = 'fullsize'
+      )
+      and f_unaccent (asset."originalFileName") like any (
+        array[
+          '%.3fr',
+          '%.ari',
+          '%.arw',
+          '%.cap',
+          '%.cin',
+          '%.cr2',
+          '%.cr3',
+          '%.crw',
+          '%.dcr',
+          '%.dng',
+          '%.erf',
+          '%.fff',
+          '%.iiq',
+          '%.k25',
+          '%.kdc',
+          '%.mrw',
+          '%.nef',
+          '%.nrw',
+          '%.orf',
+          '%.ori',
+          '%.pef',
+          '%.psd',
+          '%.raf',
+          '%.raw',
+          '%.rw2',
+          '%.rwl',
+          '%.sr2',
+          '%.srf',
+          '%.srw',
+          '%.x3f',
+          '%.heic',
+          '%.heif',
+          '%.hif',
+          '%.insp',
+          '%.jp2',
+          '%.jpe',
+          '%.jxl',
+          '%.svg',
+          '%.tif',
+          '%.tiff'
+        ]::text[]
+      )
+    )
   )
 
 -- AssetJobRepository.getForMigrationJob
@@ -188,7 +216,8 @@ select
           "asset_file"."path",
           "asset_file"."type",
           "asset_file"."isEdited",
-          "asset_file"."isProgressive"
+          "asset_file"."isProgressive",
+          "asset_file"."isTransparent"
         from
           "asset_file"
         where
@@ -533,6 +562,7 @@ select
   "asset"."checksum",
   "asset"."originalPath",
   "asset"."isExternal",
+  "asset"."visibility",
   "asset"."originalFileName",
   "asset"."livePhotoVideoId",
   "asset"."fileCreatedAt",
@@ -564,6 +594,7 @@ from
 where
   "asset"."deletedAt" is null
   and "asset"."id" = $2
+  and "asset"."visibility" != $3
 
 -- AssetJobRepository.streamForStorageTemplateJob
 select
@@ -573,6 +604,7 @@ select
   "asset"."checksum",
   "asset"."originalPath",
   "asset"."isExternal",
+  "asset"."visibility",
   "asset"."originalFileName",
   "asset"."livePhotoVideoId",
   "asset"."fileCreatedAt",
@@ -603,6 +635,7 @@ from
   inner join "asset_exif" on "asset"."id" = "asset_exif"."assetId"
 where
   "asset"."deletedAt" is null
+  and "asset"."visibility" != $2
 
 -- AssetJobRepository.streamForDeletedJob
 select
